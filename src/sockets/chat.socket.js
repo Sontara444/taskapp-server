@@ -8,7 +8,7 @@ let io;
 function initSocket(server) {
   io = new Server(server, {
     cors: {
-      origin: process.env.CLIENT_URL,
+      origin: "https://chat-app-client-chi-three.vercel.app",
       methods: ["GET", "POST"]
     }
   });
