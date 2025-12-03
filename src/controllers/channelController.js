@@ -123,6 +123,11 @@ exports.updateChannel = async (req, res) => {
         await channel.save();
         await channel.populate('members', 'username email');
 
+        // Only populate createdBy if it exists (for backward compatibility)
+        if (channel.createdBy) {
+            await channel.populate('createdBy', 'username email');
+        }
+
         res.status(200).json(channel);
     } catch (error) {
         console.error('Error updating channel:', error);
@@ -140,9 +145,9 @@ exports.deleteChannel = async (req, res) => {
             return res.status(404).json({ message: 'Channel not found' });
         }
 
-        // Check if user is a member (basic permission check)
-        if (!channel.members.some(member => member.toString() === userId)) {
-            return res.status(403).json({ message: 'Not authorized to delete this channel' });
+        // Check if user is the creator (admin)
+        if (channel.createdBy.toString() !== userId) {
+            return res.status(403).json({ message: 'Only the channel creator can delete this channel' });
         }
 
         await Channel.findByIdAndDelete(channelId);

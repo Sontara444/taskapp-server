@@ -12,7 +12,14 @@ const server = http.createServer(app);
 initSocket(server);
 
 connectDB()
-app.use(cors());
+app.use(cors({
+    origin: [
+        "http://localhost:5173",
+        "https://chat-app-client-three.vercel.app"
+    ],
+    methods: ["GET", "POST", "PUT", "DELETE"],
+    credentials: true
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
