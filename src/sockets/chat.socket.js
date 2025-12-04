@@ -118,6 +118,14 @@ function initSocket(server) {
       io.to(data.to).emit("end_call");
     });
 
+    socket.on("call_started", (data) => {
+      io.to(data.to).emit("call_started", { from: socket.id });
+    });
+
+    socket.on("user_left_call", (data) => {
+      io.to(data.to).emit("user_left_call", { userId: data.userId, name: data.name });
+    });
+
     socket.on("disconnect", () => {
       console.log("User disconnected:", socket.user.id);
       onlineUsers.delete(socket.user.id.toString());
