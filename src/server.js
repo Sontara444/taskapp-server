@@ -16,7 +16,7 @@ app.use(cors({
     origin: [
         "https://chat-app-client-git-feature-call-sontaras-projects.vercel.app",
         "http://localhost:5173",
-        // "https://chat-app-client-chi-three.vercel.app",
+        "https://chat-app-client-chi-three.vercel.app",
     ],
     methods: ["GET", "POST", "PUT", "DELETE"],
     credentials: true
