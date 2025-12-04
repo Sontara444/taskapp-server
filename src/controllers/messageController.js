@@ -131,3 +131,87 @@ exports.searchMessages = async (req, res) => {
         res.status(500).json({ message: 'Server error searching messages' });
     }
 };
+
+exports.updateMessageStatus = async (req, res) => {
+    try {
+        const { messageId } = req.params;
+        const { status, userId } = req.body;
+        const currentUserId = req.userId;
+
+        const message = await Message.findById(messageId);
+        if (!message) {
+            return res.status(404).json({ message: 'Message not found' });
+        }
+
+        // Update status based on the action
+        if (status === 'delivered' && !message.deliveredTo.includes(currentUserId)) {
+            message.deliveredTo.push(currentUserId);
+
+            // Update overall status if not already read
+            if (message.status === 'sent') {
+                message.status = 'delivered';
+            }
+        } else if (status === 'read' && !message.readBy.includes(currentUserId)) {
+            message.readBy.push(currentUserId);
+
+            // Also mark as delivered if not already
+            if (!message.deliveredTo.includes(currentUserId)) {
+                message.deliveredTo.push(currentUserId);
+            }
+
+            message.status = 'read';
+        }
+
+        await message.save();
+        await message.populate('sender', 'username email');
+
+        // Emit socket event to notify sender
+        const io = getIO();
+        io.to(message.channel.toString()).emit('status_updated', message);
+
+        res.status(200).json(message);
+    } catch (error) {
+        console.error('Error updating message status:', error);
+        res.status(500).json({ message: 'Server error updating message status' });
+    }
+};
+
+exports.markMessagesAsRead = async (req, res) => {
+    try {
+        const { channelId } = req.body;
+        const userId = req.userId;
+
+        // Find all messages in the channel that are not sent by this user and not already read
+        const messages = await Message.find({
+            channel: channelId,
+            sender: { $ne: userId },
+            readBy: { $ne: userId }
+        });
+
+        const io = getIO();
+
+        for (const message of messages) {
+            // Add user to readBy array
+            if (!message.readBy.includes(userId)) {
+                message.readBy.push(userId);
+            }
+
+            // Add user to deliveredTo array if not already there
+            if (!message.deliveredTo.includes(userId)) {
+                message.deliveredTo.push(userId);
+            }
+
+            message.status = 'read';
+            await message.save();
+            await message.populate('sender', 'username email');
+
+            // Emit status update for each message
+            io.to(channelId).emit('status_updated', message);
+        }
+
+        res.status(200).json({ message: 'Messages marked as read', count: messages.length });
+    } catch (error) {
+        console.error('Error marking messages as read:', error);
+        res.status(500).json({ message: 'Server error marking messages as read' });
+    }
+};

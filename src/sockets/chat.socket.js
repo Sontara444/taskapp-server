@@ -100,6 +100,56 @@ function initSocket(server) {
       });
     });
 
+    // Message delivery and read receipts
+    socket.on("message_delivered", async (data) => {
+      try {
+        const { messageId, channelId } = data;
+        const message = await Message.findById(messageId);
+
+        if (message && !message.deliveredTo.includes(socket.user.id)) {
+          message.deliveredTo.push(socket.user.id);
+
+          // Update overall status if not already read
+          if (message.status === 'sent') {
+            message.status = 'delivered';
+          }
+
+          await message.save();
+          await message.populate('sender', 'username email');
+
+          // Notify all channel members about the status update
+          io.to(channelId).emit('status_updated', message);
+        }
+      } catch (error) {
+        console.error("Error updating message delivery status:", error);
+      }
+    });
+
+    socket.on("message_read", async (data) => {
+      try {
+        const { messageId, channelId } = data;
+        const message = await Message.findById(messageId);
+
+        if (message && !message.readBy.includes(socket.user.id)) {
+          message.readBy.push(socket.user.id);
+
+          // Also mark as delivered if not already
+          if (!message.deliveredTo.includes(socket.user.id)) {
+            message.deliveredTo.push(socket.user.id);
+          }
+
+          message.status = 'read';
+          await message.save();
+          await message.populate('sender', 'username email');
+
+          // Notify all channel members about the status update
+          io.to(channelId).emit('status_updated', message);
+        }
+      } catch (error) {
+        console.error("Error updating message read status:", error);
+      }
+    });
+
     // WebRTC Signaling
     socket.on("call_user", (data) => {
       const { userToCall, signalData, from, name, callType } = data;
